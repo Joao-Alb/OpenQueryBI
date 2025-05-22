@@ -1,0 +1,25 @@
+{
+    "databases": [
+        {
+            "name": "crm",
+            "path": "test//crm.db",
+            "type": "sqlite",
+            "tables": [
+                "customers",
+                "employees",
+                "products",
+                "sales"
+            ]
+        },
+        {
+            "name": "inventory_management",
+            "path": "test//inventory_management.db",
+            "type": "sqlite",
+            "tables": [
+                "inventory",
+                "supplier_products",
+                "suppliers"
+            ]
+        }
+    ]
+}
