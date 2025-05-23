@@ -48,8 +48,15 @@ def query_table(database_name, query,limit=100):
     return columns
 
 @mcp.tool()
-def plot_line_from_sql(database_name:str,query:str,x:str,y:str,limit:int=100):
+def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100):
     """Plot a line chart from a SQL query. This will create a line chart with the x and y values.
+    Arguments:
+    type: The type of plot to create. This can be either "line" or "bar".
+    database_name: The name of the database to use.
+    query: The SQL query to execute.
+    x: The name of the column to use for the x-axis.
+    y: The name of the column to use for the y-axis.
+    limit: The maximum number of rows to return from the query.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    utils.run_command_in_background(f'streamlit run "{workspace_path}\\app.py" -- plot_line_from_sql "{database_info['path']}" "{query}" "{x}" "{y}"')
+    utils.run_command_in_background(f'streamlit run "{workspace_path}\\app.py" -- plot_{type.lower()}_from_sql "{database_info['path']}" "{query}" "{x}" "{y}" {limit}"')
