@@ -3,23 +3,12 @@
         {
             "name": "crm",
             "path": "test//crm.db",
-            "type": "sqlite",
-            "tables": [
-                "customers",
-                "employees",
-                "products",
-                "sales"
-            ]
+            "type": "sqlite"
         },
         {
             "name": "inventory_management",
             "path": "test//inventory_management.db",
-            "type": "sqlite",
-            "tables": [
-                "inventory",
-                "supplier_products",
-                "suppliers"
-            ]
+            "type": "sqlite"
         }
     ]
 }

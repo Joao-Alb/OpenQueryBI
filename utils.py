@@ -1,4 +1,6 @@
 import json
+import subprocess
+import threading
 
 def export_config(config:dict,path):
     with open(path+"\\config.json", 'w') as f:
@@ -12,4 +14,16 @@ def get_database_info(database_name:str,databases_config_path):
         for database in databases:
             if database["name"] == database_name:
                 return database
-    return None
+    raise ValueError(f"Database {database_name} not found in {databases_config_path}")
+
+
+def run_command_in_background(cmd):
+    thread = threading.Thread(target=run_command, args=(cmd,))
+    thread.start()
+
+def run_command(cmd):
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = process.communicate()
+    print("Output:", stdout)
+    if stderr:
+        print("Error:", stderr)
