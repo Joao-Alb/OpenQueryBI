@@ -16,6 +16,12 @@ def get_database_info(database_name:str,databases_config_path):
                 return database
     raise ValueError(f"Database {database_name} not found in {databases_config_path}")
 
+def get_databases(databases_config_path:str):
+    """Get the list of all the databases. This will return a list of dictionaries with the name and description of each database.
+    """
+    with open(databases_config_path, 'r') as f:
+        databases = json.load(f)
+        return databases["databases"]
 
 def run_command_in_background(cmd):
     thread = threading.Thread(target=run_command, args=(cmd,))
@@ -27,3 +33,8 @@ def run_command(cmd):
     print("Output:", stdout)
     if stderr:
         print("Error:", stderr)
+
+def clean_query(query:str):
+    """Clean the query. This will remove the limit and order by clauses from the query.
+    """
+    return query.replace('"', '\\"').replace('\n', ' ').replace("'","")

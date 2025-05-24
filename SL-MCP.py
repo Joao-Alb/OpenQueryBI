@@ -11,11 +11,18 @@ databases_config_path = os.path.join(workspace_path, "databases.json")
 mcp = FastMCP("OpenQueryBI")
 
 @mcp.tool()
+def get_databases():
+    """Get the list of all the databases. This will return a list of dictionaries with the name and description of each database.
+    """
+    databases = utils.get_databases(databases_config_path)
+    databases = str(databases).replace("{","").replace("}","\n").capitalize()
+    return databases
+
 def get_tables(database_name:str):
     """Get the list of all the tables in the database. This will return a list of dictionaries with the name and description of each table.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(database_info["path"])
+    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [row[0] for row in cursor.fetchall()]
@@ -23,21 +30,40 @@ def get_tables(database_name:str):
     return tables
 
 @mcp.tool()
-def get_table_columns(database_name:str, table:str):
-    """Get the columns of a table in the database. This will return a dictionary with the name of each column.
+def get_database_info(database_name:str)->str:
+    """Get the information of the database. This will return the tables and columns of the database.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(database_info["path"])
+    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = [row[0] for row in cursor.fetchall()]
+    database_info.pop("path")
+    database_info["tables"] = ""
+    for table in tables:
+        database_info["tables"] += table + '(Columns: '+get_table_columns(database_name, table)+')\n'
+    conn.close()
+    return f"""
+    Database Name: {database_name}
+    Type: {type}
+    Tables: {database_info['tables']}
+"""
+
+def get_table_columns(database_name:str, table:str):
+    """Get the columns of a table in the database. This will return the name of each column.
+    """
+    database_info = utils.get_database_info(database_name, databases_config_path)
+    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
     cursor = conn.cursor()
     cursor.execute(f"PRAGMA table_info({table})")
     columns = [row[1] for row in cursor.fetchall()]
     conn.close()
-    return {"name": table, "columns": columns}
+    return str(columns)
 
 @mcp.tool()
 def query_table(database_name, query,limit=100):
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(database_info['path'])
+    conn = sqlite3.connect(workspace_path+"\\"+database_info['path'])
     if "limit" not in query.lower():
         query = f"{query} LIMIT {limit}"
     cursor = conn.cursor()
@@ -45,7 +71,7 @@ def query_table(database_name, query,limit=100):
     result = cursor.fetchall()
     columns = [column[0] for column in cursor.description]
     conn.close()
-    return columns
+    return pd.DataFrame(result, columns=columns).to_string(index=False)
 
 @mcp.tool()
 def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100):
@@ -59,4 +85,5 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     limit: The maximum number of rows to return from the query.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    utils.run_command_in_background(f'streamlit run "{workspace_path}\\app.py" -- plot_{type.lower()}_from_sql "{database_info['path']}" "{query}" "{x}" "{y}" {limit}"')
+    escaped_query = utils.clean_query(query)
+    utils.run_command_in_background(f'streamlit run "{workspace_path}\\app.py" -- "plot_{type.lower()}_from_sql" "{workspace_path+"\\"+database_info['path']}" "{escaped_query}" "{x}" "{y}" {limit}')
