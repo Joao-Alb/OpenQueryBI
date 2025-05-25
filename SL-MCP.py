@@ -84,9 +84,11 @@ def query_table(database_name, query,limit=100):
 @mcp.tool()
 def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100):
     """Plot a line chart from a SQL query. This will create a line chart with the x and y values.
-    Please be sure that the query is working. Validate the query before using it.
+    Please be sure that the query is working. Validate the query using the query_table function before calling this function.
     The query must return a table with the x and y values. The x and y values must be in the same table.
     This function will create a graph that will be visible in the streamlit app for the user.
+    This function will run the app.py file in the background and will create a graph using the query.
+    Please run this function only once to avoid redundant calls to the app.py file.
     Arguments:
     type: The type of plot to create. This can be either "line" or "bar".
     database_name: The name of the database to use.
