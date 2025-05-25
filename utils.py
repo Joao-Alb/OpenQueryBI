@@ -28,7 +28,9 @@ def run_command_in_background(cmd):
     thread.start()
 
 def run_command(cmd):
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,startupinfo=startupinfo)
     stdout, stderr = process.communicate()
     print("Output:", stdout)
     if stderr:
