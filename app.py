@@ -25,7 +25,7 @@ def plot_line_from_sql(database_path:str,query:str,x:str,y:str,limit:int=100):
     return st.line_chart(df.set_index(x)[y])
 
 def plot_bar_from_sql(database_path:str,query:str,x:str,y:str,limit:int=100):
-    """Plot a bar chart from a SQL query. This will create a bar chart with the x and y values.
+    """Plot a bar chart from a SQL query using Streamlit. This will create a bar chart with the x and y values.
     """
     df = get_dataframe_from_sql(database_path,query,limit)
     if x not in df.columns or y not in df.columns:
