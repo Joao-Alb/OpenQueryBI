@@ -62,6 +62,14 @@ def get_table_columns(database_name:str, table:str):
 
 @mcp.tool()
 def query_table(database_name, query,limit=100):
+    """Query a table in the database. This will return the result of the query.
+    Run this function carefully. This will execute the query in the database.
+    DO NOT USE THIS FUNCTION FOR INSERT, UPDATE OR DELETE QUERIES.
+    This function is only for SELECT queries. Only execute read only queries.
+    Please run this function before using the plot_from_sql function.
+    Arguments:
+    database_name: The name of the database to use.
+    query: The SQL query to execute.""" 
     database_info = utils.get_database_info(database_name, databases_config_path)
     conn = sqlite3.connect(workspace_path+"\\"+database_info['path'])
     if "limit" not in query.lower():
@@ -76,6 +84,9 @@ def query_table(database_name, query,limit=100):
 @mcp.tool()
 def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100):
     """Plot a line chart from a SQL query. This will create a line chart with the x and y values.
+    Please be sure that the query is working. Validate the query before using it.
+    The query must return a table with the x and y values. The x and y values must be in the same table.
+    This function will create a graph that will be visible in the streamlit app for the user.
     Arguments:
     type: The type of plot to create. This can be either "line" or "bar".
     database_name: The name of the database to use.
@@ -85,5 +96,14 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     limit: The maximum number of rows to return from the query.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
+    db_path = os.path.join(workspace_path, database_info["path"])
     escaped_query = utils.clean_query(query)
-    utils.run_command_in_background(f'streamlit run "{workspace_path}\\app.py" -- "plot_{type.lower()}_from_sql" "{workspace_path+"\\"+database_info['path']}" "{escaped_query}" "{x}" "{y}" {limit}')
+    app_path = os.path.join(workspace_path, "app.py")
+    cmd = (
+        f'streamlit run "{app_path}" '
+        f'-- plot_{type.lower()}_from_sql '
+        f'"{db_path}" '
+        f'"{escaped_query}" '
+        f'"{x}" "{y}" {limit}'
+    )
+    utils.run_command_in_background(cmd)
