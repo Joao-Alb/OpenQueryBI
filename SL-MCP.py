@@ -61,7 +61,7 @@ def get_table_columns(database_name:str, table:str):
     return str(columns)
 
 @mcp.tool()
-def query_table(database_name, query,limit=100):
+def validate_query(database_name, query,limit=100):
     """Query a table in the database. This will return the result of the query.
     Run this function carefully. This will execute the query in the database.
     DO NOT USE THIS FUNCTION FOR INSERT, UPDATE OR DELETE QUERIES.
