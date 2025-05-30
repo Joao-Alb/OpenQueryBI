@@ -62,4 +62,7 @@ if __name__ == "__main__":
         query = sys.argv[3]
         x = sys.argv[4]
         y = sys.argv[5]
+        limit = int(sys.argv[6]) if len(sys.argv) > 6 else 100
+        update_interval = int(sys.argv[7]) if len(sys.argv) > 7 else 180
+        st.write(sys.argv[8] if len(sys.argv) > 8 else "Graph requested to AI")
         plot_from_sql(plot_type,database_path,query,x,y)

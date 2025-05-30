@@ -82,7 +82,7 @@ def validate_query(database_name, query,limit=100):
     return pd.DataFrame(result, columns=columns).to_string(index=False)
 
 @mcp.tool()
-def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100):
+def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100, update_interval:int=180, title:str="Graph requested to AI"):
     """Plot a line chart from a SQL query. This will create a line chart with the x and y values.
     Please be sure that the query is working. Validate the query using the query_table function before calling this function.
     The query must return a table with the x and y values. The x and y values must be in the same table.
@@ -95,7 +95,9 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     query: The SQL query to execute.
     x: The name of the column to use for the x-axis.
     y: The name of the column to use for the y-axis.
-    limit: The maximum number of rows to return from the query.
+    limit: The maximum number of rows to return from the query. Default is 100 rows,
+    update_interval: The interval in seconds to update the graph. Default is 180 seconds,
+    title: The title of the graph. Default is "Graph requested to AI".
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
     db_path = os.path.join(workspace_path, database_info["path"])
@@ -106,6 +108,6 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
         f'-- plot_{type.lower()}_from_sql '
         f'"{db_path}" '
         f'"{escaped_query}" '
-        f'"{x}" "{y}" {limit}'
+        f'"{x}" "{y}" {limit} {update_interval} "{title}"'
     )
     utils.run_command_in_background(cmd)
