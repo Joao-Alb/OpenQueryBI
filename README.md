@@ -46,7 +46,7 @@ plot_from_sql(
 - `query_table`: Execute SQL queries with result limits
 - `plot_from_sql`: Generate charts from SQL queries
 - `get_table_columns`: Retrieve column information
-- `get_databases`: List available databases
+- `get_databases_list`: List available databases
 
 ## Requirements
 - Python >= 3.12
