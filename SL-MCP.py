@@ -11,20 +11,43 @@ databases_config_path = os.path.join(workspace_path, "databases.json")
 mcp = FastMCP("OpenQueryBI")
 
 @mcp.tool()
-def get_databases_list():
+def get_databases():
     """Get the list of all the databases. This will return a list of dictionaries with the name and description of each database.
     """
-    databases = utils.get_databases_list(databases_config_path)
+    databases = utils.get_databases(databases_config_path)
     databases = str(databases).replace("{","").replace("}","\n").capitalize()
     return databases
+
+def get_tables(database_name:str):
+    """Get the list of all the tables in the database. This will return a list of dictionaries with the name and description of each table.
+    """
+    database_info = utils.get_database_info(database_name, databases_config_path)
+    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return tables
 
 @mcp.tool()
 def get_database_info(database_name:str)->str:
     """Get the information of the database. This will return the tables and columns of the database.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    db = utils.get_db(database_info)
-    return db.get_database_info()
+    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = [row[0] for row in cursor.fetchall()]
+    database_info.pop("path")
+    database_info["tables"] = ""
+    for table in tables:
+        database_info["tables"] += table + '(Columns: '+get_table_columns(database_name, table)+')\n'
+    conn.close()
+    return f"""
+    Database Name: {database_name}
+    Type: {type}
+    Tables: {database_info['tables']}
+"""
 
 def get_table_columns(database_name:str, table:str):
     """Get the columns of a table in the database. This will return the name of each column.
@@ -48,10 +71,15 @@ def validate_query(database_name, query,limit=100):
     database_name: The name of the database to use.
     query: The SQL query to execute.""" 
     database_info = utils.get_database_info(database_name, databases_config_path)
-    db = utils.get_db(database_info)
+    conn = sqlite3.connect(workspace_path+"\\"+database_info['path'])
     if "limit" not in query.lower():
         query = f"{query} LIMIT {limit}"
-    return db.query_string(query)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    result = cursor.fetchall()
+    columns = [column[0] for column in cursor.description]
+    conn.close()
+    return pd.DataFrame(result, columns=columns).to_string(index=False)
 
 @mcp.tool()
 def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100, update_interval:int=180, title:str="Graph requested to AI"):
@@ -71,15 +99,15 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     update_interval: The interval in seconds to update the graph. Default is 180 seconds,
     title: The title of the graph. Default is "Graph requested to AI".
     """
+    database_info = utils.get_database_info(database_name, databases_config_path)
+    db_path = os.path.join(workspace_path, database_info["path"])
     escaped_query = utils.clean_query(query)
     app_path = os.path.join(workspace_path, "app.py")
     cmd = (
         f'streamlit run "{app_path}" '
         f'-- plot_{type.lower()}_from_sql '
-        f'"{database_name}" '
+        f'"{db_path}" '
         f'"{escaped_query}" '
         f'"{x}" "{y}" {limit} {update_interval} "{title}"'
     )
     utils.run_command_in_background(cmd)
-
-print(get_database_info("crm"))
