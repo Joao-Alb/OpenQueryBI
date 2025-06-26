@@ -1,4 +1,4 @@
-import streamlit as st
+import sys
 import pandas as pd
 import sqlite3
 import os
@@ -82,7 +82,7 @@ def validate_query(database_name, query,limit=100):
     return pd.DataFrame(result, columns=columns).to_string(index=False)
 
 @mcp.tool()
-def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100, update_interval:int=180, title:str="Graph requested to AI"):
+def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100, update_interval:int=10, title:str="Graph requested to AI"):
     """Plot a line chart from a SQL query. This will create a line chart with the x and y values.
     Please be sure that the query is working. Validate the query using the query_table function before calling this function.
     The query must return a table with the x and y values. The x and y values must be in the same table.
@@ -111,3 +111,4 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
         f'"{x}" "{y}" {limit} {update_interval} "{title}"'
     )
     utils.run_command_in_background(cmd)
+    sys.exit(0)
