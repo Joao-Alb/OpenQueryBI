@@ -22,7 +22,7 @@ def get_tables(database_name:str):
     """Get the list of all the tables in the database. This will return a list of dictionaries with the name and description of each table.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
+    conn = sqlite3.connect(database_info["path"])
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [row[0] for row in cursor.fetchall()]
@@ -34,7 +34,7 @@ def get_database_info(database_name:str)->str:
     """Get the information of the database. This will return the tables and columns of the database.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
+    conn = sqlite3.connect(database_info["path"])
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [row[0] for row in cursor.fetchall()]
@@ -42,6 +42,7 @@ def get_database_info(database_name:str)->str:
     database_info["tables"] = ""
     for table in tables:
         database_info["tables"] += table + '(Columns: '+get_table_columns(database_name, table)+')\n'
+    cursor.close()
     conn.close()
     return f"""
     Database Name: {database_name}
@@ -53,7 +54,7 @@ def get_table_columns(database_name:str, table:str):
     """Get the columns of a table in the database. This will return the name of each column.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(workspace_path+"\\"+database_info["path"])
+    conn = sqlite3.connect(database_info["path"])
     cursor = conn.cursor()
     cursor.execute(f"PRAGMA table_info({table})")
     columns = [row[1] for row in cursor.fetchall()]
@@ -71,13 +72,14 @@ def validate_query(database_name, query,limit=100):
     database_name: The name of the database to use.
     query: The SQL query to execute.""" 
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(workspace_path+"\\"+database_info['path'])
+    conn = sqlite3.connect(database_info['path'])
     if "limit" not in query.lower():
         query = f"{query} LIMIT {limit}"
     cursor = conn.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
     columns = [column[0] for column in cursor.description]
+    cursor.close()
     conn.close()
     return pd.DataFrame(result, columns=columns).to_string(index=False)
 
@@ -100,7 +102,8 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     title: The title of the graph. Default is "Graph requested to AI".
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    db_path = os.path.join(workspace_path, database_info["path"])
+    #db_path = os.path.join(workspace_path, database_info["path"])
+    db_path = database_info["path"]
     escaped_query = utils.clean_query(query)
     app_path = os.path.join(workspace_path, "app.py")
     cmd = (
