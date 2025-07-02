@@ -8,7 +8,7 @@ from mcp.server.fastmcp import FastMCP
 workspace_path = os.path.dirname(os.path.abspath(__file__))
 databases_config_path = os.path.join(workspace_path, "databases.json")
 
-mcp = FastMCP("OpenQueryBI")
+mcp = FastMCP("OpenQueryBI",host="0.0.0.0", port=8002)
 
 @mcp.tool()
 def get_databases():
@@ -114,4 +114,4 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
         f'"{x}" "{y}" {limit} {update_interval} "{title}"'
     )
     utils.run_command_in_background(cmd)
-    sys.exit(0)
+    return {""}
