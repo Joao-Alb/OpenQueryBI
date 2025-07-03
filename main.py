@@ -90,9 +90,7 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     """Plot a line chart from a SQL query. This will create a line chart with the x and y values.
     Please be sure that the query is working. Validate the query using the query_table function before calling this function.
     The query must return a table with the x and y values. The x and y values must be in the same table.
-    This function will create a graph that will be visible in the streamlit app for the user.
-    This function will run the app.py file in the background and will create a graph using the query.
-    Please run this function only once to avoid redundant calls to the app.py file.
+    This function will create a live graph that will be visible in the UI for the user.
     Arguments:
     type: The type of plot to create. This can be either "line" or "bar".
     database_name: The name of the database to use.
@@ -104,19 +102,17 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     title: The title of the graph. Default is "Graph requested to AI".
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    #db_path = os.path.join(workspace_path, database_info["path"])
-    db_path = database_info["path"]
-    escaped_query = utils.clean_query(query)
-    app_path = os.path.join(workspace_path, "app.py")
-    cmd = (
-        f'streamlit run "{app_path}" '
-        f'-- plot_{type.lower()}_from_sql '
-        f'"{db_path}" '
-        f'"{escaped_query}" '
-        f'"{x}" "{y}" {limit} {update_interval} "{title}"'
-    )
-    utils.run_command_in_background(cmd)
-    return {""}
+    return {
+    "message": f"Graph requested, frontend will process the request and display the graph for the user.",
+    "type":type,
+    "database_path": database_info["path"],
+    "x": x,
+    "y": y,
+    "query": utils.clean_query(query),
+    "limit": limit,
+    "update_interval": update_interval,
+    "title": title
+    }
 
 if __name__ == "__main__":
     print(f"Starting OpenQueryBI MCP server on port {PORT}...")
