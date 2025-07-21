@@ -1,6 +1,6 @@
 import sys
 import pandas as pd
-import sqlite3
+from sqlalchemy import create_engine, text
 import os
 import utils
 from mcp.server.fastmcp import FastMCP
@@ -12,11 +12,27 @@ databases_config_path = os.path.join(workspace_path, "databases.json")
 
 mcp = FastMCP("OpenQueryBI",host="0.0.0.0", port=PORT)
 
+def __query(query: str, database_info:dict):
+   
+    if database_info['dialect'] == "sqlite":
+        connection_url = f"sqlite:///{database_info['database']}"
+    
+    else:
+       connection_url = (
+        f"{database_info['dialect']}://{database_info['username']}:{database_info['password']}"
+        f"@{database_info['host']}:{database_info['port']}/{database_info['database']}"
+    )
+    engine = create_engine(connection_url)
+    with engine.connect() as conn:
+        result = conn.execute(text(query))
+        return result.fetchall(),list(result.keys())
+
 @mcp.tool()
 def get_databases():
     """Get the list of all the databases. This will return a list of dictionaries with the name and description of each database.
     """
     databases = utils.get_databases(databases_config_path)
+    databases = utils.remove_key_from_dicts(databases,"config")
     databases = str(databases).replace("{","").replace("}","\n").capitalize()
     return databases
 
@@ -24,31 +40,22 @@ def get_tables(database_name:str):
     """Get the list of all the tables in the database. This will return a list of dictionaries with the name and description of each table.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(database_info["path"])
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return tables
+    data = __query("SELECT name FROM sqlite_master WHERE type='table';",database_info["config"])
+    return [row[0] for row in data]
 
 @mcp.tool()
 def get_database_info(database_name:str)->str:
     """Get the information of the database. This will return the tables and columns of the database.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(database_info["path"])
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [row[0] for row in cursor.fetchall()]
-    database_info.pop("path")
+    tables = database_info["tables"]
+    database_info.pop("config")
     database_info["tables"] = ""
     for table in tables:
-        database_info["tables"] += table + '(Columns: '+get_table_columns(database_name, table)+')\n'
-    cursor.close()
-    conn.close()
+        database_info["tables"] += table + ' (Columns: '+get_table_columns(database_name, table)+')\n'
     return f"""
     Database Name: {database_name}
-    Type: {type}
+    Type: {database_info['type']}
     Tables: {database_info['tables']}
 """
 
@@ -56,12 +63,9 @@ def get_table_columns(database_name:str, table:str):
     """Get the columns of a table in the database. This will return the name of each column.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(database_info["path"])
-    cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({table})")
-    columns = [row[1] for row in cursor.fetchall()]
-    conn.close()
-    return str(columns)
+    data,_ = __query(f"PRAGMA table_info({table})",database_info["config"])
+    columns = [str(column[1])+f'({column[2]})' for column in data]
+    return ", ".join(columns)
 
 @mcp.tool()
 def validate_query(database_name, query,limit=100):
@@ -74,16 +78,10 @@ def validate_query(database_name, query,limit=100):
     database_name: The name of the database to use.
     query: The SQL query to execute.""" 
     database_info = utils.get_database_info(database_name, databases_config_path)
-    conn = sqlite3.connect(database_info['path'])
     if "limit" not in query.lower():
         query = f"{query} LIMIT {limit}"
-    cursor = conn.cursor()
-    cursor.execute(query)
-    result = cursor.fetchall()
-    columns = [column[0] for column in cursor.description]
-    cursor.close()
-    conn.close()
-    return pd.DataFrame(result, columns=columns).to_string(index=False)
+    data,columns = __query(query,database_info["config"])
+    return pd.DataFrame(data, columns=columns).to_string(index=False)
 
 @mcp.tool()
 def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100, update_interval:int=10, title:str="Graph requested to AI"):
@@ -105,7 +103,7 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     return {
     "message": f"Graph requested, frontend will process the request and display the graph for the user.",
     "type":type,
-    "database_path": database_info["path"],
+    "database_configs": database_info["config"],
     "x": x,
     "y": y,
     "query": utils.clean_query(query),
@@ -115,6 +113,7 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     }
 
 if __name__ == "__main__":
+    get_database_info('crm')
     print(f"Starting OpenQueryBI MCP server on port {PORT}...")
     print(f"Connect to this server using http://localhost:{PORT}/sse")
     mcp.run(transport="sse")

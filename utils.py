@@ -2,6 +2,9 @@ import json
 import subprocess
 import threading
 
+def remove_key_from_dicts(dict_list, key_to_remove):
+    return [{k: v for k, v in d.items() if k != key_to_remove} for d in dict_list]
+
 def export_config(config:dict,path):
     with open(path+"\\config.json", 'w') as f:
         json.dump(config, f, indent=4)
