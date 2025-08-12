@@ -1,4 +1,3 @@
-import sys
 import pandas as pd
 from sqlalchemy import create_engine, text
 import os
@@ -17,6 +16,13 @@ def __query(query: str, database_info:dict):
     if database_info['dialect'] == "sqlite":
         connection_url = f"sqlite:///{database_info['database']}"
     
+    elif database_info['dialect'] == "postgresql":
+        connection_url = (
+        f"postgresql://{database_info['username']}:{database_info['password']}"
+        f"@{database_info['host']}/{database_info['database']}"
+        f"?sslmode={database_info.get('sslmode','require')}&channel_binding={database_info.get('channel_binding','require')}"
+    )
+
     else:
        connection_url = (
         f"{database_info['dialect']}://{database_info['username']}:{database_info['password']}"
@@ -63,8 +69,8 @@ def get_table_columns(database_name:str, table:str):
     """Get the columns of a table in the database. This will return the name of each column.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    data,_ = __query(f"PRAGMA table_info({table})",database_info["config"])
-    columns = [str(column[1])+f'({column[2]})' for column in data]
+    database = utils.get_database_class(database_info)
+    columns = database.get_table_columns(table)
     return ", ".join(columns)
 
 @mcp.tool()
@@ -113,7 +119,7 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     }
 
 if __name__ == "__main__":
-    get_database_info('crm')
+    get_database_info('inventory_management')
     print(f"Starting OpenQueryBI MCP server on port {PORT}...")
     print(f"Connect to this server using http://localhost:{PORT}/sse")
     mcp.run(transport="sse")

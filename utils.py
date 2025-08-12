@@ -43,3 +43,78 @@ def clean_query(query:str):
     """Clean the query. This will remove the limit and order by clauses from the query.
     """
     return query.replace('"', '\\"').replace('\n', ' ').replace("'","")
+
+from sqlalchemy import create_engine, text
+
+class Database():
+    def __init__(self, config:dict):
+        self.dialect = config.get('dialect')
+
+    def query(self, query:str):
+        """Run a query on the database. This will return the result of the query.
+        """
+        raise NotImplementedError("This method should be implemented by subclasses.")
+                                  
+class SQLiteDatabase(Database):
+    def __init__(self, config:dict):
+        super().__init__(config)
+        self.path = config.get('database')
+
+    def query(self,query: str):
+        connection_url = f"sqlite:///{self.path}"
+        engine = create_engine(connection_url)
+        with engine.connect() as conn:
+            result = conn.execute(text(query))
+            return result.fetchall(),list(result.keys())
+
+    def get_table_columns(self, table:str):
+        """Get the columns of a table in the SQLite database. This will return the name of each column.
+        """
+        query = f"PRAGMA table_info({table});"
+        data, _ = self.query(query)
+        columns = [str(column[1])+f'({column[2]})' for column in data]
+        return columns
+    
+class PostgresDatabase(Database):
+    
+    def __init__(self, config:dict):
+        super().__init__(config)
+        self.host = config.get('host')
+        self.port = config.get('port', 5432)
+        self.database = config.get('database')
+        self.username = config.get('username')
+        self.password = config.get('password')
+        self.sslmode = config.get('sslmode', 'require')
+        self.channel_binding = config.get('channel_binding', 'require')
+
+    def query(self, query:str):
+        connection_url = (
+        f"postgresql://{self.username}:{self.password}"
+        f"@{self.host}/{self.database}"
+        f"?sslmode={self.sslmode}&channel_binding={self.channel_binding}"
+    )
+        engine = create_engine(connection_url)
+        with engine.connect() as conn:
+            result = conn.execute(text(query))
+            return result.fetchall(),list(result.keys())
+        
+    def get_table_columns(self, table:str):
+        """Get the columns of a table in the SQLite database. This will return the name of each column.
+        """
+        query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table}';"
+        data, _ = self.query(query)
+        columns = [str(column[0])+f'({column[1]})' for column in data]
+        return columns
+    
+
+def get_database_class(database_info:dict)->Database:
+    """Get the database class based on the dialect. This will return the class that will be used to connect to the database.
+    """
+    if database_info['config']['dialect'] == "sqlite":
+        return SQLiteDatabase(database_info["config"])
+    
+    elif database_info['config']['dialect'] == "postgresql":
+        return PostgresDatabase(database_info["config"])
+    
+    else:
+        raise ValueError(f"Unsupported database dialect: {database_info['dialect']}")
