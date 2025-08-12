@@ -2,12 +2,28 @@
     "databases": [
         {
             "name": "crm",
-            "path": "test//crm.db",
+            "config":{
+                "dialect":"sqlite",
+                "username":"",
+                "password":"",
+                "host":"",
+                "port":"",
+                "database":"test//crm.db"
+            },
+            "tables":["customers","employees","products","sales"],
             "type": "sqlite"
         },
         {
             "name": "inventory_management",
-            "path": "test//inventory_management.db",
+            "config":{
+                "dialect":"sqlite",
+                "username":"",
+                "password":"",
+                "host":"",
+                "port":"",
+                "database":"test//inventory_management.db"
+            },
+            "tables":["inventory","supplier_products","suppliers"],
             "type": "sqlite"
         }
     ]

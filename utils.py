@@ -2,11 +2,14 @@ import json
 import subprocess
 import threading
 
+def remove_key_from_dicts(dict_list, key_to_remove):
+    return [{k: v for k, v in d.items() if k != key_to_remove} for d in dict_list]
+
 def export_config(config:dict,path):
     with open(path+"\\config.json", 'w') as f:
         json.dump(config, f, indent=4)
 
-def get_database_info(database_name:str,databases_config_path)->dict:
+def get_database_info(database_name:str,databases_config_path):
     """Get the information of the database. This will return a dictionary with the name and description of the database.
     """
     with open(databases_config_path, 'r') as f:
@@ -16,7 +19,7 @@ def get_database_info(database_name:str,databases_config_path)->dict:
                 return database
     raise ValueError(f"Database {database_name} not found in {databases_config_path}")
 
-def get_databases_list(databases_config_path:str):
+def get_databases(databases_config_path:str):
     """Get the list of all the databases. This will return a list of dictionaries with the name and description of each database.
     """
     with open(databases_config_path, 'r') as f:
@@ -41,94 +44,77 @@ def clean_query(query:str):
     """
     return query.replace('"', '\\"').replace('\n', ' ').replace("'","")
 
-import sqlite3
-import pandas as pd
+from sqlalchemy import create_engine, text
+
 class Database():
-    def __init__(self):
-        raise NotImplementedError("Database class is not implemented, use one of its childs.")
-    
-    def get_tables(self):
-        """Get the list of all the tables in the database. This will return a list of dictionaries with the name and description of each table.
-        """
-        raise NotImplementedError("get_tables method is not implemented, use one of its childs.")
-    
-    def get_table_columns(self):
-        """Get the columns of a table in the database. This will return the name of each column.
-        """
-        raise NotImplementedError("get_table_columns method is not implemented, use one of its childs.")
-    
-    def get_database_info(self):
-        """Get the information of the database. This will return the tables and columns of the database.
-        """
-        raise NotImplementedError("get_database_info method is not implemented, use one of its childs.")
-    
-    def query(self):
-        """Query the database. This will return a dataframe with the result of the query.
-        """
-        raise NotImplementedError("validate_query method is not implemented, use one of its childs.")
+    def __init__(self, config:dict):
+        self.dialect = config.get('dialect')
 
+    def query(self, query:str):
+        """Run a query on the database. This will return the result of the query.
+        """
+        raise NotImplementedError("This method should be implemented by subclasses.")
+                                  
 class SQLiteDatabase(Database):
-    
-    def with_sqlite_connection(func):
-        """Decorator that handles SQLite connection management.
-        Opens connection, creates cursor, executes function, and ensures proper cleanup.
-        """
-        def wrapper(self, *args, **kwargs):
-            self.conn = sqlite3.connect(self.path)
-            self.cursor = self.conn.cursor()
-            try:
-                return func(self, *args, **kwargs)
-            finally:
-                self.cursor.close()
-                self.conn.close()
-        return wrapper
+    def __init__(self, config:dict):
+        super().__init__(config)
+        self.path = config.get('database')
 
+    def query(self,query: str):
+        connection_url = f"sqlite:///{self.path}"
+        engine = create_engine(connection_url)
+        with engine.connect() as conn:
+            result = conn.execute(text(query))
+            return result.fetchall(),list(result.keys())
 
-    def __init__(self, name:str, path:str):
-        self.name = name
-        self.path = path
-        self.type = "sqlite"
-
-    @with_sqlite_connection
-    def get_tables(self):
-        self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in self.cursor.fetchall()]
-        return tables
-    
-    @with_sqlite_connection
     def get_table_columns(self, table:str):
-        self.cursor.execute(f"PRAGMA table_info({table})")
-        columns = [row[1] for row in self.cursor.fetchall()]
+        """Get the columns of a table in the SQLite database. This will return the name of each column.
+        """
+        query = f"PRAGMA table_info({table});"
+        data, _ = self.query(query)
+        columns = [str(column[1])+f'({column[2]})' for column in data]
         return columns
     
-    @with_sqlite_connection
-    def get_database_info(self):
-        """Get the information of the database. This will return the tables and columns of the database.
-        """
-        self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in self.cursor.fetchall()]
-        db_tables = ""
-        for table in tables:
-            db_tables += table + '(Columns: '+self.get_table_columns(table)+')\n'
-        return f"""
-        Database Name: {self.name}
-        Type: {self.type}
-        Tables: {db_tables}"""
+class PostgresDatabase(Database):
     
-    def query_string(self, query:str):
-        return self.query(query).to_string(index=False)
-    
-    @with_sqlite_connection
+    def __init__(self, config:dict):
+        super().__init__(config)
+        self.host = config.get('host')
+        self.port = config.get('port', 5432)
+        self.database = config.get('database')
+        self.username = config.get('username')
+        self.password = config.get('password')
+        self.sslmode = config.get('sslmode', 'require')
+        self.channel_binding = config.get('channel_binding', 'require')
+
     def query(self, query:str):
-        self.cursor.execute(query)
-        result = self.cursor.fetchall()
-        columns = [column[0] for column in self.cursor.description]
-        return pd.DataFrame(result, columns=columns)
+        connection_url = (
+        f"postgresql://{self.username}:{self.password}"
+        f"@{self.host}/{self.database}"
+        f"?sslmode={self.sslmode}&channel_binding={self.channel_binding}"
+    )
+        engine = create_engine(connection_url)
+        with engine.connect() as conn:
+            result = conn.execute(text(query))
+            return result.fetchall(),list(result.keys())
+        
+    def get_table_columns(self, table:str):
+        """Get the columns of a table in the SQLite database. This will return the name of each column.
+        """
+        query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table}';"
+        data, _ = self.query(query)
+        columns = [str(column[0])+f'({column[1]})' for column in data]
+        return columns
     
-def get_db(database_info:str)-> Database:
-    """Get the database object. This will return a database object based on the type of the database.
+
+def get_database_class(database_info:dict)->Database:
+    """Get the database class based on the dialect. This will return the class that will be used to connect to the database.
     """
-    if database_info["type"] == "sqlite":
-        return SQLiteDatabase(database_info["name"], database_info["path"])
+    if database_info['config']['dialect'] == "sqlite":
+        return SQLiteDatabase(database_info["config"])
+    
+    elif database_info['config']['dialect'] == "postgresql":
+        return PostgresDatabase(database_info["config"])
+    
     else:
-        raise ValueError(f"Database type {database_info['type']} is not supported.")
+        raise ValueError(f"Unsupported database dialect: {database_info['dialect']}")
