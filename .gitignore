@@ -1,6 +1,6 @@
 mediators/*
 !mediators/.gitkeep
-
+test/test_database/*
 # Python-generated files
 __pycache__/
 *.py[oc]
