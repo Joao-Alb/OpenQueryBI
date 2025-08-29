@@ -65,15 +65,17 @@ class Database():
         with engine.connect() as conn:
             result = conn.execute(text(query))
             return result.fetchall(),list(result.keys())
-        
-    def iter_export_schema_as_sql(self):
-        """Export the schema of the database as a SQL script. This will return the SQL script as a Iterator of strings.
+            
+    def export_schema_as_sql(self):
+        """Export the schema of the database as a SQL script. This will return the SQL script of each table as a list of dicts.
         """
         engine = create_engine(self.connection_url)
         metadata = MetaData()
         metadata.reflect(bind=engine)
+        table_schemas = []
         for table in metadata.sorted_tables:
-            yield str(table.compile(dialect=engine.dialect)) + ";\n"
+            table_schemas.append({table.name:str(table.compile(dialect=engine.dialect)) + ";\n"})
+        return table_schemas
                                   
 class SQLiteDatabase(Database):
     def __init__(self, config:dict):
