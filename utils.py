@@ -9,6 +9,10 @@ def export_config(config:dict,path):
     with open(path+"\\config.json", 'w') as f:
         json.dump(config, f, indent=4)
 
+def save_databases_info(databases: list, databases_config_path:str):
+    with open(databases_config_path, 'w') as f:
+        json.dump({"databases": databases}, f, indent=4)
+
 def get_database_info(database_name:str,databases_config_path):
     """Get the information of the database. This will return a dictionary with the name and description of the database.
     """
