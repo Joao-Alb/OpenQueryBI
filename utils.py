@@ -48,28 +48,41 @@ def clean_query(query:str):
     """
     return query.replace('"', '\\"').replace('\n', ' ').replace("'","")
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, MetaData
 
 class Database():
     def __init__(self, config:dict):
         self.dialect = config.get('dialect')
+        self.connection_url = ""
+
+    def get_connection_url(self):
+        raise NotImplementedError("This method should be implemented by subclasses.")
 
     def query(self, query:str):
         """Run a query on the database. This will return the result of the query.
         """
-        raise NotImplementedError("This method should be implemented by subclasses.")
+        engine = create_engine(self.connection_url)
+        with engine.connect() as conn:
+            result = conn.execute(text(query))
+            return result.fetchall(),list(result.keys())
+        
+    def iter_export_schema_as_sql(self):
+        """Export the schema of the database as a SQL script. This will return the SQL script as a Iterator of strings.
+        """
+        engine = create_engine(self.connection_url)
+        metadata = MetaData()
+        metadata.reflect(bind=engine)
+        for table in metadata.sorted_tables:
+            yield str(table.compile(dialect=engine.dialect)) + ";\n"
                                   
 class SQLiteDatabase(Database):
     def __init__(self, config:dict):
         super().__init__(config)
         self.path = config.get('database')
+        self.connection_url = self.get_connection_url()
 
-    def query(self,query: str):
-        connection_url = f"sqlite:///{self.path}"
-        engine = create_engine(connection_url)
-        with engine.connect() as conn:
-            result = conn.execute(text(query))
-            return result.fetchall(),list(result.keys())
+    def get_connection_url(self):
+        return f"sqlite:///{self.path}"
 
     def get_table_columns(self, table:str):
         """Get the columns of a table in the SQLite database. This will return the name of each column.
@@ -90,17 +103,14 @@ class PostgresDatabase(Database):
         self.password = config.get('password')
         self.sslmode = config.get('sslmode', 'require')
         self.channel_binding = config.get('channel_binding', 'require')
+        self.connection_url = self.get_connection_url()
 
-    def query(self, query:str):
-        connection_url = (
+    def get_connection_url(self):
+        return (
         f"postgresql://{self.username}:{self.password}"
         f"@{self.host}/{self.database}"
         f"?sslmode={self.sslmode}&channel_binding={self.channel_binding}"
     )
-        engine = create_engine(connection_url)
-        with engine.connect() as conn:
-            result = conn.execute(text(query))
-            return result.fetchall(),list(result.keys())
         
     def get_table_columns(self, table:str):
         """Get the columns of a table in the SQLite database. This will return the name of each column.
