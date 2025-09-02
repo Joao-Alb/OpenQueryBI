@@ -48,7 +48,19 @@ def clean_query(query:str):
     """
     return query.replace('"', '\\"').replace('\n', ' ').replace("'","")
 
+def get_database_prompt(db:dict):
+    """Get the database prompt. This will return a string with the name and description of the database.
+    """
+    prompt = f"""
+    Database Name: {db['name']}
+    Type: {db["type"]}
+    Tables:\n"""
+    for table in db["tables"]:
+        prompt+= f"""{list(table.keys())[0]}{list(table.values())[0]}\n\n"""
+    return prompt
+
 from sqlalchemy import create_engine, text, MetaData
+from sqlalchemy.schema import CreateTable
 
 class Database():
     def __init__(self, config:dict):
@@ -74,8 +86,25 @@ class Database():
         metadata.reflect(bind=engine)
         table_schemas = []
         for table in metadata.sorted_tables:
-            table_schemas.append({table.name:str(table.compile(dialect=engine.dialect)) + ";\n"})
+            table_schemas.append({table.name:str(CreateTable(table).compile(engine))})
         return table_schemas
+    
+    def format_data_as_table(self, rows, columns):
+        header = "    ".join(columns)
+        lines = []
+        for row in rows:
+            lines.append("    ".join(map(str, row)))
+        table = "/*\n" + header + "\n" + "\n".join(lines) + "\n*/"
+        return table
+    
+    def get_sample_rows(self, table:str, limit:int=5, format:bool=False):
+        """Get sample rows from a table in the database. This will return the result of the query.
+        """
+        query = f"SELECT * FROM {table} LIMIT {limit};"
+        rows, columns = self.query(query)
+        if format:
+            return self.format_data_as_table(rows, columns)
+        return rows,columns
                                   
 class SQLiteDatabase(Database):
     def __init__(self, config:dict):

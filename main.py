@@ -38,9 +38,16 @@ def get_databases():
     """Get the list of all the databases. This will return a list of dictionaries with the name and description of each database.
     """
     databases = utils.get_databases(databases_config_path)
-    databases = utils.remove_key_from_dicts(databases,"config")
-    databases = str(databases).replace("{","").replace("}","\n").capitalize()
-    return databases
+    for db in databases:
+        Database = utils.get_database_class(db)
+        schemas = Database.export_schema_as_sql()
+        for attr in ["tables","config"]:
+            db.pop(attr)
+        db['tables'] = [{v:Database.get_sample_rows(table=k,limit=3,format=True)} for d in schemas for k, v in d.items()]
+    output = "Databases available:\n"
+    for db in databases:
+        output += utils.get_database_prompt(db)+"\n####\n"
+    return output
 
 def get_tables(database_name:str):
     """Get the list of all the tables in the database. This will return a list of dictionaries with the name and description of each table.
@@ -49,21 +56,6 @@ def get_tables(database_name:str):
     data = __query("SELECT name FROM sqlite_master WHERE type='table';",database_info["config"])
     return [row[0] for row in data]
 
-@mcp.tool()
-def get_database_info(database_name:str)->str:
-    """Get the information of the database. This will return the tables and columns of the database.
-    """
-    database_info = utils.get_database_info(database_name, databases_config_path)
-    tables = database_info["tables"]
-    database_info.pop("config")
-    database_info["tables"] = ""
-    for table in tables:
-        database_info["tables"] += table + ' (Columns: '+get_table_columns(database_name, table)+')\n'
-    return f"""
-    Database Name: {database_name}
-    Type: {database_info['type']}
-    Tables: {database_info['tables']}
-"""
 
 def get_table_columns(database_name:str, table:str):
     """Get the columns of a table in the database. This will return the name of each column.
