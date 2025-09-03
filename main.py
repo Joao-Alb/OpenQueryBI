@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, text
 import os
 import utils
 from mcp.server.fastmcp import FastMCP
+import json
 
 PORT = 8002
 
@@ -98,8 +99,9 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     title: The title of the graph. Default is "Graph requested to AI".
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    return {
-    "message": f"Graph requested, frontend will process the request and display the graph for the user.",
+    with open(os.path.join(workspace_path, "plot_info.json"), "r") as f:
+        plots = json.load(f)
+    plot_data = {
     "type":type,
     "database_configs": database_info["config"],
     "x": x,
@@ -108,6 +110,15 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     "limit": limit,
     "update_interval": update_interval,
     "title": title
+    }
+    plot_id = utils.generate_plot_id(plot_data)
+    if plot_id not in plots:
+        plots[plot_id] = plot_data
+        with open(os.path.join(workspace_path, "plot_info.json"), "w") as f:
+            json.dump(plots, f, indent=4)
+    return {
+        'plot_id': plot_id,
+        'message': f'Plot created with id {plot_id}, This plot will be visible in the UI.'
     }
 
 if __name__ == "__main__":

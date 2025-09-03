@@ -1,0 +1,53 @@
+{
+    "95c9b46b691dcf9faa783c1aec6a7439f0018b9c0ff8051ebbcbb8a69c954692": {
+        "type": "line",
+        "database_configs": {
+            "dialect": "sqlite",
+            "username": "",
+            "password": "",
+            "host": "",
+            "port": "",
+            "database": "test/test_database/e_commerce/e_commerce.sqlite"
+        },
+        "x": "date",
+        "y": "invoice_count",
+        "query": "SELECT DATE(invoice_date) as date, COUNT(*) as invoice_count FROM Invoices GROUP BY DATE(invoice_date) ORDER BY date",
+        "limit": 100,
+        "update_interval": 10,
+        "title": "Invoices Over Time"
+    },
+    "f271afb58a3f63571d9952f5dcd5bdced81737ebc307ade57201bce4692cc89f": {
+        "type": "line",
+        "database_configs": {
+            "dialect": "sqlite",
+            "username": "",
+            "password": "",
+            "host": "",
+            "port": "",
+            "database": "test/test_database/e_commerce/e_commerce.sqlite"
+        },
+        "x": "invoice_date",
+        "y": "invoice_count",
+        "query": "SELECT DATE(invoice_date) as invoice_date, COUNT(*) as invoice_count FROM Invoices GROUP BY DATE(invoice_date) ORDER BY invoice_date",
+        "limit": 100,
+        "update_interval": 10,
+        "title": "Invoices Over Time"
+    },
+    "75ee0607f94bd4a795753f32d2f882145a817b18111cd150dfeda66326264e46": {
+        "type": "line",
+        "database_configs": {
+            "dialect": "sqlite",
+            "username": "",
+            "password": "",
+            "host": "",
+            "port": "",
+            "database": "test/test_database/e_commerce/e_commerce.sqlite"
+        },
+        "x": "date",
+        "y": "invoice_count",
+        "query": "SELECT DATE(invoice_date) as date, COUNT(*) as invoice_count FROM Invoices GROUP BY DATE(invoice_date) ORDER BY DATE(invoice_date)",
+        "limit": 100,
+        "update_interval": 10,
+        "title": "Invoices Over Time"
+    }
+}

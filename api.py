@@ -1,10 +1,11 @@
 import utils
 from main import databases_config_path
 from fastapi import FastAPI,Body
+import json
 
 app = FastAPI()
 
-@app.post("/set_databases_configs/")
+@app.post("/databases/")
 def set_databases_configs(databases: list=Body(...)):
     """Set the databases configuration. This will overwrite the existing configuration.
     Arguments:
@@ -12,3 +13,12 @@ def set_databases_configs(databases: list=Body(...)):
     """
     utils.save_databases_info(databases, databases_config_path)
     return {"message": "Databases configuration updated successfully.","ok":True}
+
+@app.get("/plots/{plot_id}")
+def get_plot(plot_id:str):
+    with open("plot_info.json", "r") as f:
+        plots = json.load(f)
+    if plot_id in plots:
+        print(plots[plot_id])
+        return plots[plot_id]
+    raise ValueError(f"Plot with id {plot_id} not found.")

@@ -43,6 +43,11 @@ def run_command(cmd):
     if stderr:
         print("Error:", stderr)
 
+def generate_plot_id(plot_data: dict) -> str:
+    import hashlib
+    serialized = json.dumps(plot_data, sort_keys=True)
+    return hashlib.sha256(serialized.encode()).hexdigest()
+
 def clean_query(query:str):
     """Clean the query. This will remove the limit and order by clauses from the query.
     """
