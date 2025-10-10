@@ -3,3 +3,4 @@ mcp==1.9.0
 SQLAlchemy==2.0.41
 psycopg2-binary==2.9.10
 fastapi==0.116.1
+anthropic==0.69.0
