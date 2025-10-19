@@ -2,8 +2,17 @@ import utils
 from main import databases_config_path
 from fastapi import FastAPI,Body
 import json
+from ai import process_query
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/databases/")
 def set_databases_configs(databases: list=Body(...)):
@@ -22,3 +31,12 @@ def get_plot(plot_id:str):
         print(plots[plot_id])
         return plots[plot_id]
     raise ValueError(f"Plot with id {plot_id} not found.")
+
+@app.get("/ai/")
+def get_ai_completion(query: str):
+    """Get a response from the AI agent.
+    Arguments:
+    query: The query to send to the AI agent.
+    """
+    response = process_query(query)
+    return response
