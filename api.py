@@ -1,6 +1,7 @@
 import utils
 from main import databases_config_path
-from fastapi import FastAPI,Body
+from fastapi import FastAPI,Body, Request
+from pydantic import BaseModel
 import json
 from ai import process_query
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,11 +33,14 @@ def get_plot(plot_id:str):
         return plots[plot_id]
     raise ValueError(f"Plot with id {plot_id} not found.")
 
-@app.get("/ai/")
-def get_ai_completion(query: str):
+class QueryRequest(BaseModel):
+    query: str
+
+@app.post("/ai/")
+async def get_ai_completion(data: QueryRequest):
     """Get a response from the AI agent.
     Arguments:
     query: The query to send to the AI agent.
     """
-    response = process_query(query)
+    response = process_query(data.query)
     return response
