@@ -43,4 +43,5 @@ async def get_ai_completion(data: QueryRequest):
     query: The query to send to the AI agent.
     """
     response = process_query(data.query)
+    response.pop("input")
     return response
