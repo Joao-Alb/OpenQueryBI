@@ -189,6 +189,14 @@ Notes
 
 ---
 
+## Using /ai/ endpoint
+If you choose to use /ai/ endpoint instead of the MCP tools, you have to set an Anthropic api key for it. To do that, just create a .env file with the following info:
+```bash
+ANTHROPIC_API_KEY=sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+---
+
 ## HTTP API documentation and examples
 
 1) Register/overwrite databases
