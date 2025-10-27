@@ -7,6 +7,7 @@ import os
 from typing import Optional, Type
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from ai_prompt import ptbr as system_prompt
 
 # Load environment variables from .env file
 load_dotenv()
@@ -104,7 +105,8 @@ def process_query(user_input: str) -> str:
         str: The response from the agent
     """
     try:
-        response = agent.invoke(user_input)
+        prompt = 'System prompt: \n'+system_prompt + f"\nUser Query: \n{user_input}"
+        response = agent.invoke(prompt)
         return response
     except Exception as e:
         return f"Error processing query: {str(e)}"
