@@ -1,61 +1,332 @@
 # OpenQueryBI
 
-A tool that helps Large Language Models (LLMs) create Dashboards and visualizations through database connections using Streamlit.
+OpenQueryBI is a small toolkit that exposes a FastAPI HTTP API and an MCP-based agent server to help you query configured databases, validate and preview SQL queries, and create live plots backed by SQL queries. It is designed to be a lightweight backend for interactive dashboards or an assistant that can run or validate SQL and return results to a frontend UI.
 
-## Features
-- SQL query execution with safety limits
-- Dynamic chart generation (bar, line)
-- Database configuration management
-- Streamlit integration for visualization
+This README documents everything you need to know to run, configure, and extend OpenQueryBI. It includes project architecture, configuration examples, API usage, and operational notes.
 
-## Installation
+---
+
+## Table of contents
+
+- Project overview
+- Key components
+- Requirements & quick setup
+- Configuration files
+- Running locally
+- Running with Docker
+- HTTP API documentation and examples
+- MCP server tools and usage
+- Plot lifecycle and `plot_info.json`
+- Security considerations
+- Troubleshooting / FAQs
+- Development & contribution notes
+- License
+
+---
+
+## Project overview
+
+OpenQueryBI provides two main interfaces:
+
+- A FastAPI HTTP API (file: `api.py`) for managing database configurations, requesting AI completions, and retrieving plot metadata.
+- An MCP (Model Context Protocol) server (file: `main.py`) exposing server-side tools implemented as tools. These tools provide programmatic operations such as listing databases, validating SQL, and creating plots via a server-sent events (SSE) transport.
+
+The project supports at least SQLite and PostgreSQL (and other SQL dialects) through SQLAlchemy. The AI integration can be is accessed through `ai.py` and is wired into the FastAPI endpoint `/ai/` to transform user queries into actions.
+
+Files of primary interest:
+
+- `api.py` — FastAPI endpoints and middleware configuration.
+- `main.py` — MCP server setup and tools (`get_databases`, `validate_query`, `plot_from_sql`, and helpers).
+- `utils.py` — helper functions for DB config management, sanitization, and other utilities (not exhaustively documented here). 
+- `databases.json` — persistent storage of configured database entries (user-managed).
+- `plot_info.json` — persistent store for created plots and their metadata.
+- `Dockerfile` and `requirements.txt` — for containerized deployments and dependency management.
+
+---
+
+## Requirements & quick setup
+
+Prerequisites
+
+- Docker Engine (recommended) — ensure Docker is installed and running on your machine.
+- docker-compose (optional) — useful if you want to manage multi-container setups.
+- Git (optional)
+
+Quickstart (Docker-first)
+
+OpenQueryBI is designed to run out-of-the-box using the provided `Dockerfile`. This is the recommended way to get a reproducible environment with the correct system packages and Python dependencies already installed.
+
+Build the Docker image from the project root:
+
 ```bash
-pip install -e .
+docker build -t openquerybi:latest .
 ```
 
-## Project Structure
+Run a container (example). This exposes ports used by the HTTP API and the MCP server.
+
+Notes about the `Dockerfile` in this repo:
+
+- It installs system dependencies required by some database drivers (e.g., `libpq-dev` for Postgres drivers) and installs Python packages from `requirements.txt`.
+- The container command starts both the FastAPI app and the MCP server so the two services are available on the exposed ports. Ports and behavior can be adjusted via environment variables or by editing the `CMD` in the `Dockerfile`.
+
+---
+
+## Configuration files
+
+OpenQueryBI stores persistent configuration in JSON files in the project root. Two files are central:
+
+- `databases.json`: holds the list of databases and their connection information.
+- `plot_info.json`: stores metadata for charts/plots created via `plot_from_sql`.
+
+Example `databases.json` (suggested shape):
+
+```json
+[
+  {
+    "name": "analytics_pg",
+    "description": "Production analytics Postgres",
+    "dialect": "postgresql",
+    "config": {
+      "host": "db.example.com",
+      "port": 5432,
+      "username": "myuser",
+      "password": "mypassword",
+      "database": "analytics",
+      "sslmode": "require",
+      "channel_binding": "require"
+    }
+  }
+]
 ```
-OpenQueryBI/
-├── app.py              # Streamlit application
-├── databases.json      # Database configurations
-├── SL-MCP.py          # Main MCP tool functions
-├── utils.py           # Utility functions
-└── test/              # Test databases
-    ├── crm.db
-    └── inventory_management.db
+
+Important fields explained:
+
+- `name`: a unique short name used to refer to the configured DB.
+- `description`: human-readable info.
+- `dialect`: SQL dialect (`sqlite`, `postgresql`, or other SQLAlchemy dialect strings).
+- `config`: dictionary used to build the connection URL in `main.py`.
+
+Example `plot_info.json` shape (auto-created/updated by `plot_from_sql`):
+
+```json
+{
+  "<plot_id>": {
+    "type": "line",
+    "database_configs": { /* copy of DB config used to run this plot */ },
+    "x": "timestamp",
+    "y": "value",
+    "query": "SELECT timestamp, value FROM series ORDER BY timestamp DESC",
+    "limit": 100,
+    "update_interval": 10,
+    "title": "Graph requested to AI"
+  }
+}
 ```
 
-## Usage
-1. Configure your databases in `databases.json`
-2. Use the MCP tools to query and visualize data:
+`plot_id` is generated by `utils.generate_plot_id` from the plot metadata.
 
-```python
-from SL_MCP import plot_from_sql
+---
 
-# Create a bar chart
-plot_from_sql(
-    type="bar",
-    database_name="crm",
-    query="SELECT product_name, COUNT(*) as count FROM orders GROUP BY product_name",
-    x="product_name",
-    y="count"
-)
+## Servers
+
+We have 2 servers: the MCP tools (defined at main.py) and the FastAPI HTTP API (defined at api.py)
+
+You can either choose to run MCP server to connect it to your own AI endpoint, or you can use the endpoint "/ai/" in the HTTP API that will use the same tools as shown in the MCP file, but connected with Langchain and not MCP. Either way, you would use the HTTP api to configure the databases and get the plot info.
+
+HTTP endpoints:
+
+- POST `/databases/` — overwrite databases config JSON (body: JSON array of database entries).
+- GET `/plots/{plot_id}` — retrieve saved plot metadata (from `plot_info.json`).
+- POST `/ai/` — send a natural language SQL/plot request that will be processed by the AI agent pipeline (body: `{ "query": "..." }`).
+
+## Running locally
+
+There are two main server components you typically run:
+
+1. MCP server (tool runner) — run `main.py`
+2. FastAPI HTTP API — run `api.py` with Uvicorn (or another ASGI server)
+
+This starts an MCP server named `OpenQueryBI` on port 8002. The default transport used in `main.py` is `sse`; a UI or client can connect to `http://localhost:8002/sse` to interact with the MCP tools.
+
+Start the FastAPI API
+
+```bash
+uvicorn api:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Available Functions
-- `query_table`: Execute SQL queries with result limits
-- `plot_from_sql`: Generate charts from SQL queries
-- `get_table_columns`: Retrieve column information
-- `get_databases_list`: List available databases
+Endpoints (default host/port) — base URL `http://localhost:8000`
 
-## Requirements
-- Python >= 3.12
-- Streamlit >= 1.45.1
-- MCP CLI >= 1.9.0
-- SQLite3
+Notes
 
-## Development
-To contribute:
-1. Clone the repository
-2. Install dependencies: `pip install -e ".[dev]"`
-3. Run tests: `pytest`
+- The API will call `process_query` from `ai.py`. The response returned by `/ai/` has the `input` field removed by `api.py` before sending to clients.
+- `api.py` configures CORS with `allow_origins=["*"]`. This is permissive — adjust in production to restrict origins.
+
+---
+
+## Running with Docker
+
+There is a `Dockerfile` in the project. A typical flow:
+
+Build image (from repo root):
+
+```bash
+docker build -t openquerybi:latest .
+```
+
+Run container (example):
+
+```bash
+docker run -it --rm -p 8000:8000 -p 8002:8002 \
+  -v $(pwd)/databases.json:/app/databases.json:ro \
+  -v $(pwd)/plot_info.json:/app/plot_info.json \
+  openquerybi:latest
+```
+
+Notes
+
+- Bind-mount `databases.json` and `plot_info.json` for persistence.
+- For DB drivers needing native libraries (e.g., `psycopg2`), ensure the Docker image includes the required system packages (the `Dockerfile` should already handle this or you may adjust it).
+
+---
+
+## HTTP API documentation and examples
+
+1) Register/overwrite databases
+
+Endpoint: POST `/databases/`
+
+Body: JSON array of database entries (see `databases.json` example above)
+
+Example with curl:
+
+```bash
+curl -X POST http://localhost:8000/databases/ \
+  -H "Content-Type: application/json" \
+  -d @databases.json
+```
+
+Response: JSON message acknowledging update. The server writes `databases.json` using `utils.save_databases_info`.
+
+2) Retrieve plot metadata
+
+Endpoint: GET `/plots/{plot_id}`
+
+Example:
+
+```bash
+curl http://localhost:8000/plots/<plot_id>
+```
+
+Response: JSON object describing the plot (type, query, x, y, update interval, title, etc.). If plot not found, a ValueError is raised by server (this will be a 500 unless you add exception handling middleware).
+
+3) AI endpoint
+
+Endpoint: POST `/ai/`
+
+Body: JSON object `{ "query": "..." }`
+
+Example (curl):
+
+```bash
+curl -X POST http://localhost:8000/ai/ \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Create a line plot of user_signups over the last 30 days from analytics.users"}'
+```
+
+Response: A JSON object returned by `process_query` (processed by `ai.py`). `api.py` removes the `input` property before returning.
+
+---
+
+## MCP server tools (in `main.py`) and how to use them
+
+`main.py` exposes several tools via the MCP interface. Typical use is from an MCP client that connects to the SSE endpoint at `http://localhost:8002/sse`.
+
+Available tools (signatures and behavior):
+
+- `get_databases()`
+  - Returns a text description of configured databases and a prompt-style summary. Useful to show available data sources to the AI or UI.
+
+- `validate_query(database_name: str, query: str, limit: int = 100)`
+  - Runs a SELECT query against the named database and returns a small text summary (a string representation of a pandas DataFrame). If the query doesn't include a `LIMIT`, this tool appends one for safety. DO NOT use this for INSERT/UPDATE/DELETE. Intended for read-only validation.
+
+- `plot_from_sql(type: str, database_name: str, query: str, x: str, y: str, limit: int = 100, update_interval: int = 10, title: str = "Graph requested to AI")`
+  - Creates an entry in `plot_info.json` describing a plot. If a plot with the same computed `plot_id` exists, it will not create a duplicate. Returns the `plot_id` and message. The `type` currently supports e.g. `line` or `bar` (frontend defines rendering).
+  - IMPORTANT: This function stores a copy of `database_configs` inside the plot info so the UI can independently fetch data for the plot.
+
+Helper functions in `main.py`:
+
+- `get_tables(database_name: str)` — returns a list of table names for the given DB. (For sqlite this runs `SELECT name FROM sqlite_master WHERE type='table';`).
+- `get_table_columns(database_name: str, table: str)` — returns a comma-separated string of column names.
+
+Security note: the MCP tools are server-side code that will execute SQL. The `validate_query` function attempts to be read-only but there is no universal protection on modifications if a user crafts a query that bypasses checks and the DB user has write privileges. Ensure that the DB user used by this service has only the privileges you intend for interactive clients.
+
+---
+
+## Plot lifecycle and how UI can show live plots
+
+1. The AI or UI calls the MCP tool `plot_from_sql(...)` with type, DB name, query, x, y and optional update interval.
+2. `main.py` writes an entry to `plot_info.json` containing the plot metadata and a `plot_id` generated from hashing the plot payload.
+3. A frontend UI can request `/plots/{plot_id}` from the FastAPI to fetch the plot metadata and then run the query against the database or a dedicated server endpoint that executes the query and returns data for charting.
+4. The UI polls or subscribes to live updates (by `update_interval`) and refreshes the chart.
+
+Note: `plot_from_sql` expects the query to return columns named as specified in `x` and `y` (or at least compatible data that the UI can map). Always validate the query with `validate_query` before creating the plot.
+
+---
+
+## Security considerations
+
+- Credentials: `databases.json` may contain database credentials in plaintext. Keep this file protected (filesystem permissions, do not commit to public repos). Consider using secrets management (e.g., environment variables, vaults) for production.
+- CORS: `api.py` currently sets `allow_origins=["*"]`. In production restrict to your frontend origin only.
+- Principle of least privilege: use DB users limited to read-only for queries exposed via the public UI unless write access is explicitly required.
+- Input sanitization: user-provided SQL is passed to the backend and run. Avoid exposing raw SQL editing in a publicly reachable UI unless you have authentication and input restrictions in place.
+
+---
+
+## Troubleshooting and FAQs
+
+Problem: "Connection refused" when connecting to a Postgres database
+- Check network reachability (host/port) and that the DB accepts remote connections.
+- Verify username/password and SSL settings in `databases.json`.
+
+Problem: `sqlite` file not found or permission denied
+- Ensure `config.database` points to an existing path and the process user has read permissions.
+
+Problem: 500 error when GET `/plots/{plot_id}` after creating a plot
+- Inspect `plot_info.json` for malformed JSON. Make sure `plot_id` exists.
+
+Problem: AI responses not returning expected actions
+- Verify `ai.py` and its configuration (e.g., API keys). `api.py` calls `process_query` — review `ai.py` logs.
+
+Where to get logs
+- Run the processes in the terminal or use a process manager to capture stdout/stderr. For Docker, use `docker logs`.
+
+---
+
+## Development & contribution notes
+
+Suggested improvements and next steps you might want to add:
+
+- Add OpenAPI docs / auto-generated API documentation for all endpoints and models.
+- Add authentication to the FastAPI endpoints (JWT, OAuth, or API keys) to protect endpoints like `/databases/`.
+- Add validation & error-handling to `api.py` and `main.py` to return structured error responses (HTTP status codes).
+- Add a small test harness or unit tests for `utils.py` and MCP tools. Add basic CI checks.
+- Provide a small front-end example (React / simple static HTML) that consumes `/plots/{plot_id}` and renders charts with Chart.js or Plotly.
+
+Contributing
+
+- Fork the repository, create feature branches, and open PRs. Include tests for new functionality.
+
+---
+
+## Example usage summary
+
+1. Add or edit `databases.json` (or use POST `/databases/`).
+2. Start `main.py` to enable MCP tools.
+3. Start FastAPI (`api.py`) via `uvicorn` to serve HTTP API.
+4. Use `/ai/` to send natural language requests for queries or plots. The agent may call `validate_query` and `plot_from_sql` via MCP.
+
+Minimal example: validate and create a plot
+
+1. Call the MCP tool `validate_query('local_sqlite','SELECT timestamp, value FROM series ORDER BY timestamp DESC', limit=50)` to confirm the result set.
+2. Call `plot_from_sql('line','local_sqlite','SELECT timestamp, value FROM series ORDER BY timestamp DESC', 'timestamp','value', limit=50, update_interval=30)` to create the plot.
+3. Fetch `/plots/<plot_id>` from the REST API and render in your frontend.
