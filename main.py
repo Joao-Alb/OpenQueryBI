@@ -122,6 +122,7 @@ def plot_from_sql(type:str,database_name:str,query:str,x:str,y:str,limit:int=100
     }
 
 if __name__ == "__main__":
+    #print(get_databases())
     print(f"Starting OpenQueryBI MCP server on port {PORT}...")
     print(f"Connect to this server using http://localhost:{PORT}/sse")
     mcp.run(transport="sse")
