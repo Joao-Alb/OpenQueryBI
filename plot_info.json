@@ -49,5 +49,22 @@
         "limit": 100,
         "update_interval": 10,
         "title": "Invoices Over Time"
+    },
+    "20e8c5cb2293b4efdabf02ee914791814d0e96b97b3317218bbf50e7cea0d8a8": {
+        "type": "bar",
+        "database_configs": {
+            "dialect": "sqlite",
+            "username": "",
+            "password": "",
+            "host": "",
+            "port": "",
+            "database": "test//crm.db"
+        },
+        "x": "Salesperson",
+        "y": "Total_Sales",
+        "query": "SELECT Salesperson, SUM(Total_Amount) AS Total_Sales FROM sales GROUP BY Salesperson",
+        "limit": 100,
+        "update_interval": 10,
+        "title": "Total Sales by Salesperson"
     }
 }
