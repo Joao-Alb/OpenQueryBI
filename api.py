@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/databases/")
+@app.post("/databases")
 def set_databases_configs(databases: list=Body(...)):
     """Set the databases configuration. This will overwrite the existing configuration.
     Arguments:
@@ -36,7 +36,7 @@ def get_plot(plot_id:str):
 class QueryRequest(BaseModel):
     query: str
 
-@app.post("/ai/")
+@app.post("/ai")
 async def get_ai_completion(data: QueryRequest):
     """Get a response from the AI agent.
     Arguments:
