@@ -135,7 +135,7 @@ You can either choose to run MCP server to connect it to your own AI endpoint, o
 
 HTTP endpoints:
 
-- POST `/databases/` — overwrite databases config JSON (body: JSON array of database entries).
+- POST `/databases` — overwrite databases config JSON (body: JSON array of database entries).
 - GET `/plots/{plot_id}` — retrieve saved plot metadata (from `plot_info.json`).
 - POST `/ai/` — send a natural language SQL/plot request that will be processed by the AI agent pipeline (body: `{ "query": "..." }`).
 
@@ -201,14 +201,14 @@ ANTHROPIC_API_KEY=sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 1) Register/overwrite databases
 
-Endpoint: POST `/databases/`
+Endpoint: POST `/databases`
 
 Body: JSON array of database entries (see `databases.json` example above)
 
 Example with curl:
 
 ```bash
-curl -X POST http://localhost:8000/databases/ \
+curl -X POST http://localhost:8000/databases \
   -H "Content-Type: application/json" \
   -d @databases.json
 ```
@@ -315,7 +315,7 @@ Where to get logs
 Suggested improvements and next steps you might want to add:
 
 - Add OpenAPI docs / auto-generated API documentation for all endpoints and models.
-- Add authentication to the FastAPI endpoints (JWT, OAuth, or API keys) to protect endpoints like `/databases/`.
+- Add authentication to the FastAPI endpoints (JWT, OAuth, or API keys) to protect endpoints like `/databases`.
 - Add validation & error-handling to `api.py` and `main.py` to return structured error responses (HTTP status codes).
 - Add a small test harness or unit tests for `utils.py` and MCP tools. Add basic CI checks.
 - Provide a small front-end example (React / simple static HTML) that consumes `/plots/{plot_id}` and renders charts with Chart.js or Plotly.
@@ -328,7 +328,7 @@ Contributing
 
 ## Example usage summary
 
-1. Add or edit `databases.json` (or use POST `/databases/`).
+1. Add or edit `databases.json` (or use POST `/databases`).
 2. Start `main.py` to enable MCP tools.
 3. Start FastAPI (`api.py`) via `uvicorn` to serve HTTP API.
 4. Use `/ai/` to send natural language requests for queries or plots. The agent may call `validate_query` and `plot_from_sql` via MCP.
