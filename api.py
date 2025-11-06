@@ -26,12 +26,24 @@ def set_databases_configs(databases: list=Body(...)):
 
 @app.get("/plots/{plot_id}")
 def get_plot(plot_id:str):
-    with open("plot_info.json", "r") as f:
-        plots = json.load(f)
-    if plot_id in plots:
-        print(plots[plot_id])
-        return plots[plot_id]
-    raise ValueError(f"Plot with id {plot_id} not found.")
+    plot = get_plot_data(plot_id)
+    plot.update(get_plot_info(plot_id))
+    return plot
+
+@app.get("/plots/{plot_id}/data")
+def get_plot_data(plot_id:str):
+    plot_info = utils.get_plot_info(plot_id)
+    data = utils.get_database_class(plot_info["database_configs"]).query(plot_info["query"])
+    return {
+        "x": [row[plot_info["x"]] for row in data],
+        "y": [row[plot_info["y"]] for row in data]
+    }
+
+@app.get("/plots/{plot_id}/info")
+def get_plot_info(plot_id:str):
+    plot_info = utils.get_plot_info(plot_id)
+    plot_info.pop("database_configs")
+    return plot_info
 
 class QueryRequest(BaseModel):
     query: str
