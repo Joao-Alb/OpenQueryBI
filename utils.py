@@ -160,11 +160,11 @@ class PostgresDatabase(Database):
 def get_database_class(database_info:dict)->Database:
     """Get the database class based on the dialect. This will return the class that will be used to connect to the database.
     """
-    if database_info['config']['dialect'] == "sqlite":
-        return SQLiteDatabase(database_info["config"])
+    if database_info['dialect'] == "sqlite":
+        return SQLiteDatabase(database_info)
     
-    elif database_info['config']['dialect'] == "postgresql":
-        return PostgresDatabase(database_info["config"])
+    elif database_info['dialect'] == "postgresql":
+        return PostgresDatabase(database_info)
     
     else:
         raise ValueError(f"Unsupported database dialect: {database_info['dialect']}")

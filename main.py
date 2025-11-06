@@ -40,7 +40,7 @@ def get_databases():
     """
     databases = utils.get_databases(databases_config_path)
     for db in databases:
-        Database = utils.get_database_class(db)
+        Database = utils.get_database_class(db["config"])
         schemas = Database.export_schema_as_sql()
         for attr in ["tables","config"]:
             db.pop(attr)
@@ -62,7 +62,7 @@ def get_table_columns(database_name:str, table:str):
     """Get the columns of a table in the database. This will return the name of each column.
     """
     database_info = utils.get_database_info(database_name, databases_config_path)
-    database = utils.get_database_class(database_info)
+    database = utils.get_database_class(database_info["config"])
     columns = database.get_table_columns(table)
     return ", ".join(columns)
 
