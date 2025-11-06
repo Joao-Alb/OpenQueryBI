@@ -2,6 +2,13 @@ import json
 import subprocess
 import threading
 
+def get_plot_info(plot_id:str):
+    with open("plot_info.json", "r") as f:
+        plots = json.load(f)
+        if plot_id in plots:
+            return plots[plot_id]
+    raise ValueError(f"Plot with id {plot_id} not found.")
+
 def remove_key_from_dicts(dict_list, key_to_remove):
     return [{k: v for k, v in d.items() if k != key_to_remove} for d in dict_list]
 
